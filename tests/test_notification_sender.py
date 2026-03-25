@@ -551,6 +551,24 @@ class TestTelegramSender(unittest.TestCase):
         self.assertNotIn("parse_mode", second_payload)
         self.assertEqual(second_payload["text"], "*ST宝实")
 
+    @mock.patch("src.notification_sender.telegram_sender.requests.post")
+    def test_send_plain_text_fallback_handles_non_json_200(self, mock_post):
+        markdown_error = _response(400)
+        markdown_error.text = (
+            '{"ok":false,"error_code":400,"description":"Bad Request: can\'t parse entities"}'
+        )
+        plain_text_non_json = _response(200)
+        plain_text_non_json.text = "upstream proxy error"
+        plain_text_non_json.json.side_effect = ValueError("invalid json")
+        mock_post.side_effect = [markdown_error, plain_text_non_json]
+
+        cfg = _config(telegram_bot_token="BOT", telegram_chat_id="CHAT")
+        sender = TelegramSender(cfg)
+        result = sender.send_to_telegram("*ST宝实")
+
+        self.assertFalse(result)
+        self.assertEqual(mock_post.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

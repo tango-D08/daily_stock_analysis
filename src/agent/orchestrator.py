@@ -811,8 +811,8 @@ class AgentOrchestrator:
                 key_levels.get("support"),
                 key_levels.get("immediate_support"),
             )
-            if _level_values_equal(secondary_buy, sniper.get("ideal_buy")):
-                secondary_buy = None
+        if _level_values_equal(secondary_buy, sniper.get("ideal_buy")):
+            secondary_buy = None
         sniper["secondary_buy"] = secondary_buy if secondary_buy is not None else "N/A"
         sniper.setdefault(
             "stop_loss",
@@ -1418,8 +1418,13 @@ def _coerce_level_value(value: Any) -> Any:
         return None
     if isinstance(value, (int, float)):
         return round(float(value), 2)
-    text = str(value).strip()
-    return text or None
+    text = str(value).replace(",", "").replace("，", "").strip()
+    if not text or text.upper() == "N/A" or text in {"-", "—"}:
+        return None
+    try:
+        return round(float(text), 2)
+    except ValueError:
+        return text
 
 
 def _pick_first_level(*values: Any) -> Any:

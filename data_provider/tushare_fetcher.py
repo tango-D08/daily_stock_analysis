@@ -357,7 +357,10 @@ class TushareFetcher(BaseFetcher):
         
         # Already has suffix
         if '.' in raw_code:
-            return raw_code.upper()
+            ts_code = raw_code.upper()
+            if ts_code.endswith('.SS'):
+                return f"{ts_code[:-3]}.SH"
+            return ts_code
 
         if _is_us_code(raw_code):
             raise DataFetchError(f"TushareFetcher 不支持美股 {raw_code}，请使用 AkshareFetcher 或 YfinanceFetcher")

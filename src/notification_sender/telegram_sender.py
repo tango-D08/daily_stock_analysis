@@ -182,9 +182,21 @@ class TelegramSender:
             logger.error(f"Telegram plain-text fallback failed: {e}")
             return False
 
-        if response.status_code == 200 and response.json().get('ok'):
-            logger.info("Telegram 消息发送成功（纯文本）")
-            return True
+        if response.status_code == 200:
+            try:
+                result = response.json()
+            except ValueError:
+                logger.error("Telegram 纯文本回退失败: 响应不是有效 JSON")
+                logger.error(f"响应内容: {response.text}")
+                return False
+
+            if result.get('ok'):
+                logger.info("Telegram 消息发送成功（纯文本）")
+                return True
+
+            logger.error("Telegram 纯文本回退失败: Telegram API 返回 ok=false")
+            logger.error(f"响应内容: {response.text}")
+            return False
 
         logger.error(f"Telegram 纯文本回退失败: HTTP {response.status_code}")
         logger.error(f"响应内容: {response.text}")
