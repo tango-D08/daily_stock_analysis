@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### 测试
 
 - 🧪 **补充设置页版本信息回归测试** — 新增 Web 设置页版本信息渲染断言，并覆盖占位版本 `0.0.0` 自动回退为构建标识的逻辑。
+- 🧪 **补充前端变更验证命令** — 对应前端资源变更同步执行 `cd apps/dsa-web && npm ci && npm run lint && npm run build`，作为版本信息展示与 Docker 重建生效验证的最小验证闭环记录。
 
 ## [3.11.0] - 2026-03-27
 
