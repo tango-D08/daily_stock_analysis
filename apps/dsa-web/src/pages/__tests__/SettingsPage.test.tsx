@@ -357,7 +357,7 @@ describe('SettingsPage', () => {
 
     expect(await screen.findByRole('heading', { name: '版本信息' })).toBeInTheDocument();
     expect(screen.getByText(/当前 package\.json 仍为占位版本 0\.0\.0/)).toBeInTheDocument();
-    expect(screen.getByText('build-20260329-021530Z')).toBeInTheDocument();
+    expect(screen.getAllByText('build-20260329-021530Z')).toHaveLength(2);
   });
 
   it('resets local drafts from the page header button', () => {
