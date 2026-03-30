@@ -225,6 +225,19 @@ class BacktestService:
     ) -> Dict[str, Any]:
         config = get_config()
         engine_version = str(getattr(config, "backtest_engine_version", "v1"))
+
+        # When date filters are active and no explicit window is requested,
+        # infer the smallest available window to stay aligned with summary metrics.
+        if eval_window_days is None and (analysis_date_from is not None or analysis_date_to is not None):
+            windows = self.repo.get_distinct_eval_windows(
+                code=code,
+                engine_version=engine_version,
+                analysis_date_from=analysis_date_from,
+                analysis_date_to=analysis_date_to,
+            )
+            if windows:
+                eval_window_days = windows[0]
+
         offset = max(page - 1, 0) * limit
         rows, total = self.repo.get_results_paginated(
             code=code,
@@ -259,18 +272,14 @@ class BacktestService:
                 engine_version=engine_version,
                 analysis_date_from=analysis_date_from,
                 analysis_date_to=analysis_date_to,
-                limit=self.MAX_DYNAMIC_SUMMARY_ROWS + 1,
             )
-            if len(rows) > self.MAX_DYNAMIC_SUMMARY_ROWS:
-                raise ValueError(
-                    "Date-filtered summary matches too many rows; narrow the analysis date range or stock code."
-                )
             return self._build_dynamic_summary(
                 rows=rows,
                 scope=scope,
                 code=lookup_code,
                 eval_window_days=int(eval_window_days) if eval_window_days is not None else None,
                 engine_version=engine_version,
+                max_rows=self.MAX_DYNAMIC_SUMMARY_ROWS,
             )
 
         summary = self.repo.get_summary(
@@ -530,6 +539,7 @@ class BacktestService:
         code: Optional[str],
         eval_window_days: Optional[int],
         engine_version: str,
+        max_rows: Optional[int] = None,
     ) -> Dict[str, Any]:
         filtered_rows = [row for row in rows if getattr(row, "engine_version", None) == engine_version]
         if eval_window_days is not None:
@@ -556,6 +566,11 @@ class BacktestService:
         filtered_rows = [
             row for row in filtered_rows if getattr(row, "eval_window_days", None) == summary_window_days
         ]
+
+        if max_rows is not None and len(filtered_rows) > max_rows:
+            raise ValueError(
+                "Date-filtered summary matches too many rows; narrow the analysis date range or stock code."
+            )
 
         summary = BacktestEngine.compute_summary(
             results=filtered_rows,

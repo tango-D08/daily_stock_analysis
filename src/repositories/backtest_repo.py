@@ -265,6 +265,33 @@ class BacktestRepository:
         except Exception:
             return None
 
+    def get_distinct_eval_windows(
+        self,
+        *,
+        code: Optional[str],
+        engine_version: Optional[str] = None,
+        analysis_date_from: Optional[date] = None,
+        analysis_date_to: Optional[date] = None,
+    ) -> List[int]:
+        """Return sorted distinct eval_window_days for matching results."""
+        with self.db.get_session() as session:
+            conditions = self._build_result_conditions(
+                code=code,
+                eval_window_days=None,
+                engine_version=engine_version,
+                analysis_date_from=analysis_date_from,
+                analysis_date_to=analysis_date_to,
+                days=None,
+            )
+            where_clause = and_(*conditions) if conditions else True
+            rows = session.execute(
+                select(BacktestResult.eval_window_days)
+                .where(where_clause)
+                .distinct()
+                .order_by(BacktestResult.eval_window_days)
+            ).scalars().all()
+            return [int(w) for w in rows if w is not None]
+
     @staticmethod
     def _build_result_conditions(
         *,
