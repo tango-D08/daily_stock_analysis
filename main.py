@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _INITIAL_PROCESS_ENV = dict(os.environ)
 DEFAULT_LOG_PREFIX = "stock_analysis"
-DEFAULT_BOOTSTRAP_LOG_DIR = "logs"
 
 
 def get_config():
@@ -89,12 +88,26 @@ def _bootstrap_environment() -> None:
 
 
 def _setup_bootstrap_logging(debug: bool = False) -> None:
-    """Initialize default file logging before config or heavy imports."""
-    setup_logging(
-        log_prefix=DEFAULT_LOG_PREFIX,
-        debug=debug,
-        log_dir=DEFAULT_BOOTSTRAP_LOG_DIR,
-    )
+    """Initialize stderr-only logging before config is loaded.
+
+    File handlers are deferred until ``config.log_dir`` is known (via the
+    subsequent ``setup_logging()`` call) so that healthy runs never create
+    log files in a hard-coded directory.
+    """
+    level = logging.DEBUG if debug else logging.INFO
+    root = logging.getLogger()
+    root.setLevel(level)
+    # Avoid duplicate handlers if called more than once
+    if not any(
+        isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stderr
+        for h in root.handlers
+    ):
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setLevel(level)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        )
+        root.addHandler(handler)
 
 
 def _get_stock_analysis_pipeline():

@@ -340,20 +340,36 @@ class MainScheduleModeTestCase(unittest.TestCase):
         run_full_analysis.assert_called_once_with(config, args, ["600519", "000001"])
 
     def test_bootstrap_logging_persists_when_config_load_fails(self) -> None:
+        """Config load failure must be logged to stderr and return exit code 1.
+
+        Bootstrap logging is stderr-only so healthy runs never write to a
+        hard-coded directory.  The error is still captured by process runners
+        (e.g. GitHub Actions) that collect stderr output.
+        """
+        import io
+
         args = self._make_args()
-        logs_dir = Path(self.temp_dir.name) / "logs"
+
+        capture_stream = io.StringIO()
+        capture_handler = logging.StreamHandler(capture_stream)
+        capture_handler.setLevel(logging.DEBUG)
+        capture_handler.setFormatter(logging.Formatter("%(message)s"))
+
+        root_logger = logging.getLogger()
 
         with patch("main.parse_arguments", return_value=args), \
              patch("main.get_config", side_effect=RuntimeError("config boom")):
-            exit_code = main.main()
+            root_logger.addHandler(capture_handler)
+            try:
+                exit_code = main.main()
+            finally:
+                root_logger.removeHandler(capture_handler)
+                capture_handler.close()
 
         self.assertEqual(exit_code, 1)
-        log_files = sorted(logs_dir.glob("stock_analysis_*.log"))
-        self.assertGreaterEqual(len(log_files), 1)
-        log_file = log_files[0]
-        log_content = log_file.read_text(encoding="utf-8")
-        self.assertIn("加载配置失败", log_content)
-        self.assertIn("config boom", log_content)
+        output = capture_stream.getvalue()
+        self.assertIn("加载配置失败", output)
+        self.assertIn("config boom", output)
 
     def test_bootstrap_logging_failure_does_not_block_startup(self) -> None:
         """Bootstrap log dir unwritable must not prevent startup (P1 regression)."""
